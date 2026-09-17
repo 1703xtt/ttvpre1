@@ -1,0 +1,19 @@
+# Entorno virtual
+.venv/
+env/
+venv/
+
+# Variables de entorno locales
+.env
+
+# Archivos compilados y caches de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Checkpoints de notebooks
+.ipynb_checkpoints/
+
+# Configuraciones locales de VS Code
+.vscode/
