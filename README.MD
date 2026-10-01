@@ -160,7 +160,83 @@ df_marketing: (90, 6)    | Columnas: ['id_campanha', 'producto', 'canal', 'costo
 ---
 ```
 
-# Glosario (en desarrollo)
+---
+
+# 7. Etapa 2: Preprocesamiento, Agregación e Integración de Datos 
+
+> **Objetivo de la etapa:** Aplicar técnicas avanzadas de transformación, agregación e integración sobre los datos limpios para responder a los requerimientos de negocio de SynthData.
+
+---
+
+## 7.1. Transformación: Identificación de Ventas de Alto Rendimiento
+
+Conforme a las técnicas de filtrado y selecciones condicionales, se estableció una regla de negocio cuantitativa para segmentar transacciones destacadas:
+
+- **Métrica umbral:** Inicialmente planteada como la media general (`mean()`), se definió finalmente —por sugerencia del Instructor— mediante el **cuartil 75%** (`df_ventas['total_venta'].quantile(0.75)`), situándose en **$709.92**.
+- **Condición de filtrado:** Se seleccionaron las transacciones con `total_venta >= umbral_alto_rendimiento`.
+- **Volumen identificado:** **750 transacciones** de alto rendimiento (el 25% superior del dataset limpio).
+- **Reindexación:** Se aplicó `.reset_index(drop=True)` para asegurar índices continuos tras la segmentación.
+
+```python
+# Segmentación condicional de operaciones destacadas (Clase 06)
+promedio_venta = df_ventas['total_venta'].mean()
+df_alto_rendimiento = df_ventas[df_ventas['total_venta'] >= umbral_alto_rendimiento].reset_index(drop=True)
+```
+
+---
+
+## 7.2. Agregación: Ingresos Generados por Categoría de Producto
+
+Siguiendo los conceptos de agregación y agrupamiento con `groupby()`, análogos al `GROUP BY` de SQL, se consolidó la facturación total por unidad de negocio:
+
+| Categoría             | Transacciones | Ingresos Totales ($) | Participación (%) |
+| :-------------------- | :-----------: | :------------------: | :---------------: |
+| **Electrodomésticos** |      995      |     $505,299.63      |      34.44%       |
+| **Electrónica**       |     1,001     |     $482,577.80      |      32.89%       |
+| **Decoración**        |     1,002     |     $479,216.09      |      32.66%       |
+| **Total General**     |   **2,998**   |  **$1,467,093.52**   |    **100.00%**    |
+
+- **Conclusión analítica:** Se evidencia una distribución altamente equilibrada en la demanda entre las tres categorías, con un leve liderazgo de **Electrodomésticos** (34.23%).
+
+```python
+# Agrupamiento y consolidación de ingresos por categoría 
+ventas_por_categoria = df_ventas.groupby('categoria')['total_venta'].sum().reset_index()
+ventas_por_categoria = ventas_por_categoria.sort_values(by='total_venta', ascending=False)
+```
+
+---
+
+## 7.3. Integración Relacional: Cruce de Ventas y Marketing
+
+Aplicando los métodos de integración relacional con `pd.merge()` (Clase 08), se vincularon las ventas acumuladas con la inversión publicitaria por producto:
+
+- **Clave de enlace (`on='producto'`):** Atributo unívoco presente tanto en el histórico de transacciones como en el registro de campañas de difusión.
+- **Tipo de unión (`how='inner'`):** Se utilizó un _inner join_ para garantizar correspondencia exacta entre productos con inversión activa y transacciones registradas, evitando valores nulos (`NaN`).
+
+### Principales Productos en Facturación e Inversión
+
+| Producto            | Ingresos Totales ($) | Inversión Marketing ($) |
+| :------------------ | :------------------: | :---------------------: |
+| **Lámpara de mesa** |      $82,276.38      |         $15.93          |
+| **Auriculares**     |      $74,175.58      |         $15.24          |
+| **Microondas**      |      $72,562.89      |         $14.19          |
+| **Cafetera**        |      $59,607.31      |         $18.16          |
+| **Cuadro decorativo**|     $54,297.60      |         $15.85          |
+
+- **Tendencia observada:** La inversión publicitaria se distribuye de manera uniforme entre productos (rango estrecho de $14 a $18), por lo que el liderazgo en ingresos responde principalmente a la calidad del producto ya su valor unitario.
+
+```python
+# Integración de ventas e inversión de marketing 
+resumen_ventas = df_ventas.groupby('producto')['total_venta'].sum().reset_index()
+resumen_mkt = df_marketing.groupby('producto')['costo'].sum().reset_index()
+
+df_integrado = pd.merge(resumen_ventas, resumen_mkt, on='producto', how='inner')
+df_integrado.columns = ['Producto', 'Ingresos_Totales', 'Inversion_Marketing']
+```
+
+---
+
+# Glosario
 
 ## Pipeline
 
@@ -170,14 +246,57 @@ Pensalo como una línea de montaje de fábrica: los datos entran crudos por un e
 
 En tu proyecto, el pipeline abarca exactamente estas etapas sucesivas:
 
-<u><b>Extracción/Carga</b></u>: Lectura de los archivos CSV originales (ventas.csv, clientes.csv, marketing.csv).
-
-<u><b>Auditoría e Inspección</b></u>: Detección de valores faltantes (NaN), duplicados e inconsistencias de tipos de datos.
-
-<u><b>Limpieza y Normalización</b></u>: Casteo de tipos (ej. parseo a fechas con dayfirst=True, monedas a float64) y eliminación de registros inválidos con .dropna().
-
-<u><b>Transformación e Ingeniería de Atributos</b></u>: Creación de nuevas métricas de negocio (como calcular total_venta).
-
-<u><b>Salida/Consolidación</b></u>: Obtención de los dataframes limpios listos para modelar, visualizar o calcular KPIs.
+- <u><b>Extracción/Carga</b></u>: Lectura de los archivos CSV originales (`ventas.csv`, `clientes.csv`, `marketing.csv`).
+- <u><b>Auditoría e Inspección</b></u>: Detección de valores faltantes (`NaN`), duplicados e inconsistencias de tipos de datos.
+- <u><b>Limpieza y Normalización</b></u>: Casteo de tipos (ej. parseo a fechas con `dayfirst=True`, monedas a `float64`) y eliminación de registros inválidos con `.dropna()`.
+- <u><b>Transformación e Ingeniería de Atributos</b></u>: Creación de nuevas métricas de negocio (como calcular `total_venta`).
+- <u><b>Salida/Consolidación</b></u>: Obtención de los DataFrames limpios listos para modelar, visualizar o calcular KPIs.
 
 Se le llama pipeline porque cada transformación depende de la anterior: la salida del paso 1 alimenta directamente al paso 2.
+
+---
+
+## Imputación vs. Descarte (.dropna)
+
+- **Descarte (`dropna`):** Eliminación física de registros que presentan valores nulos o faltantes (`NaN`). Se aplica de manera rigurosa cuando los registros incompletos representan una proporción insignificante del volumen total (por ejemplo, el 0.067% en `df_ventas`) y la ausencia de variables críticas (precio y cantidad) impediría calcular métricas clave de facturación.
+- **Imputación:** Procedimiento que consiste en sustituir los valores faltantes por estimaciones heurísticas o estadísticas (media, mediana o moda). Se evita en transacciones transaccionales donde inventar el precio distorsionaría la facturación real auditada.
+
+---
+
+## Vectorización y Operaciones por Columnas
+
+Propiedad computacional de Pandas y NumPy que permite aplicar cálculos matemáticos sobre series o columnas completas de manera simultánea en memoria (a nivel de código compilado en C), sin recurrir a bucles iterativos tradicionales de Python (`for` o `while`).
+
+En este proyecto se utiliza para el cálculo directo de ingresos:
+`df_ventas['total_venta'] = (df_ventas['precio'] * df_ventas['cantidad']).round(2)`
+
+---
+
+## Máscara Booleana y Filtrado Condicional (Clase 06)
+
+Estructura auxiliar de tipo `Series` compuesta exclusivamente por valores lógicos (`True` o `False`) resultante de evaluar una condición relacional sobre una columna. Al indexar el DataFrame original con esta máscara, se aíslan instantáneamente solo aquellas filas que cumplen la condición establecida:
+`df_alto_rendimiento = df_ventas[df_ventas['total_venta'] > promedio_venta]`
+
+---
+
+## Reindexación (.reset_index)
+
+Procedimiento que regenera la secuencia numérica secuencial (de 0 a N-1) de los índices de fila de un DataFrame. Tras aplicar filtros condicionales o descartar nulos, los índices originales quedan discontinuos; `.reset_index(drop=True)` normaliza el orden sin conservar el índice previo como una columna redundante.
+
+---
+
+## Agrupamiento y Agregación (GroupBy - Clase 07)
+
+Patrón analítico (_Split-Apply-Combine_) que:
+
+1. **Divide (Split):** Separa los datos en grupos lógicos a partir de una o más variables categóricas (ej. `categoria`).
+2. **Aplica (Apply):** Ejecuta una función resumen matemática (`sum()`, `mean()`, `count()`) sobre las variables cuantitativas de cada grupo.
+3. **Combina (Combine):** Consolida los resultados en una nueva estructura tabular. Representa la equivalencia funcional directa de la sentencia relacional `GROUP BY` de SQL.
+
+---
+
+## Integración Relacional (pd.merge / Inner Join - Clase 08)
+
+Mecanismo que combina dos conjuntos de datos independientes a través de una o más columnas compartidas denominadas **claves relacionales** (`on='producto'`).
+
+La modalidad **Inner Join** (`how='inner'`) aplica una intersección matemática estricta: preserva exclusivamente aquellos registros cuyas claves coinciden en ambas tablas a la vez. Esto garantiza que el dataset integrado contenga métricas completas tanto de ingresos comerciales como de inversión publicitaria, descartando discrepancias o campos vacíos (`NaN`).
